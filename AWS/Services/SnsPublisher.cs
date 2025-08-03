@@ -1,52 +1,50 @@
 using Amazon.SimpleNotificationService;
 using Amazon.SimpleNotificationService.Model;
-using Microsoft.Extensions.Configuration;
+using AWS.Dto;
+using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace AWS.Services
 {
-    public class SnsPublisher
+    public class SnsPublisher : ISnsPublisher
     {
-        private readonly IConfiguration configuration;
+        private readonly AmazonSimpleNotificationServiceClient _snsClient;
+        private readonly AwsSettings _awsSettings;
+        private string _topicArn;
 
-        public SnsPublisher(IConfiguration configuration)
+        public SnsPublisher(AmazonSimpleNotificationServiceClient snsClient, IOptions<AwsSettings> awsOptions)
         {
-            this.configuration = configuration;
+            _snsClient = snsClient;
+            _awsSettings = awsOptions.Value;
         }
 
-        public async Task PublishAsync(string messageBody)
+        public async Task PublishAsync<T>(T message)
         {
             Console.WriteLine("Publicando mensagem no SNS...");
 
-            var accessKey = configuration["AWS:AccessKey"];
-            var secretKey = configuration["AWS:SecretKey"];
-            var region = configuration["AWS:Region"];
-            var awsServiceUrl = configuration["AWS:ServiceURL"];
-            var snsTopicName = configuration["AWS:SnsTopicName"];
-
-            var snsClient = new AmazonSimpleNotificationServiceClient(new AmazonSimpleNotificationServiceConfig
+            if (string.IsNullOrEmpty(_topicArn))
             {
-                ServiceURL = awsServiceUrl,
-                AuthenticationRegion = region
-            });
+                _topicArn = await GetTopicArnWithRetry(_awsSettings.SnsTopicName, 5, TimeSpan.FromSeconds(2));
 
-            var topicArn = await GetTopicArnWithRetry(snsClient, snsTopicName, 5, TimeSpan.FromSeconds(2));
-
-            if (string.IsNullOrEmpty(topicArn))
-            {
-                Console.WriteLine($"Erro: Tópico SNS '{snsTopicName}' não encontrado. A publicação falhou.");
-                return;
+                if (string.IsNullOrEmpty(_topicArn))
+                {
+                    Console.WriteLine($"Erro: Tópico SNS '{_awsSettings.SnsTopicName}' não encontrado. A publicação falhou.");
+                    return;
+                }
             }
+
+            var jsonMessage = JsonSerializer.Serialize(message);
 
             var publishRequest = new PublishRequest
             {
-                TopicArn = topicArn,
-                Message = messageBody,
+                TopicArn = _topicArn,
+                Message = jsonMessage,
                 Subject = "Teste de Mensagem"
             };
 
             try
             {
-                var publishResponse = await snsClient.PublishAsync(publishRequest);
+                var publishResponse = await _snsClient.PublishAsync(publishRequest);
                 Console.WriteLine($"Mensagem publicada com sucesso! ID da mensagem: {publishResponse.MessageId}");
             }
             catch (Exception ex)
@@ -55,13 +53,13 @@ namespace AWS.Services
             }
         }
 
-        async Task<string> GetTopicArnWithRetry(AmazonSimpleNotificationServiceClient client, string topicName, int maxRetries, TimeSpan delay)
+        private async Task<string> GetTopicArnWithRetry(string topicName, int maxRetries, TimeSpan delay)
         {
             for (int i = 0; i < maxRetries; i++)
             {
                 try
                 {
-                    var topicResponse = await client.ListTopicsAsync(new ListTopicsRequest());
+                    var topicResponse = await _snsClient.ListTopicsAsync(new ListTopicsRequest());
                     var foundTopic = topicResponse.Topics.FirstOrDefault(t => t.TopicArn.EndsWith(topicName));
                     if (foundTopic != null)
                     {

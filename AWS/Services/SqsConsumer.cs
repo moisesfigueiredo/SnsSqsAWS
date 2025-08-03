@@ -1,20 +1,24 @@
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using AWS.Dto;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
+
 namespace AWS.Services
 {
-    public class SqsConsumer
+    public class SqsConsumer : ISqsConsumer
     {
-        private readonly IConfiguration configuration;
+        private readonly AmazonSQSClient _sqsClient;
+        private readonly AwsSettings _awsSettings;
+        private string _queueUrl;
 
-        public SqsConsumer(IConfiguration configuration)
+        public SqsConsumer(AmazonSQSClient sqsClient, IOptions<AwsSettings> awsOptions)
         {
-            this.configuration = configuration;
+            _sqsClient = sqsClient;
+            _awsSettings = awsOptions.Value;
         }
 
-        public async Task ReceiveMessageFromSqsAsync()
+        public async Task ReceiveMessagesAsync()
         {
             Console.WriteLine("Aguardando 5 segundos para a mensagem chegar na fila...");
             await Task.Delay(5000);
@@ -23,27 +27,20 @@ namespace AWS.Services
 
             try
             {
-                var awsServiceUrl = configuration["AWS:ServiceURL"];
-                var region = configuration["AWS:Region"];
-                var sqsQueueName = configuration["AWS:SqsQueueName"];
-
-                var sqsClient = new AmazonSQSClient(new AmazonSQSConfig
+                if (string.IsNullOrEmpty(_queueUrl))
                 {
-                    ServiceURL = awsServiceUrl,
-                    AuthenticationRegion = region
-                });
-
-                var queueUrlResponse = await sqsClient.GetQueueUrlAsync(new GetQueueUrlRequest { QueueName = sqsQueueName });
-                var queueUrl = queueUrlResponse.QueueUrl;
+                    var queueUrlResponse = await _sqsClient.GetQueueUrlAsync(new GetQueueUrlRequest { QueueName = _awsSettings.SqsQueueName });
+                    _queueUrl = queueUrlResponse.QueueUrl;
+                }
 
                 var receiveRequest = new ReceiveMessageRequest
                 {
-                    QueueUrl = queueUrl,
+                    QueueUrl = _queueUrl,
                     MaxNumberOfMessages = 1,
                     WaitTimeSeconds = 10
                 };
 
-                var receiveResponse = await sqsClient.ReceiveMessageAsync(receiveRequest);
+                var receiveResponse = await _sqsClient.ReceiveMessageAsync(receiveRequest);
 
                 if (receiveResponse.Messages.Any())
                 {
@@ -63,7 +60,7 @@ namespace AWS.Services
                             Console.WriteLine($"--- Produto Recebido ---");
                             Console.WriteLine($"ID do Produto: {produto.Id}");
                             Console.WriteLine($"Nome: {produto.Nome}");
-                            Console.WriteLine($"Valor: {produto.Valor:C}"); // Exemplo de formatação monetária
+                            Console.WriteLine($"Valor: {produto.Valor:C}");
                             Console.WriteLine("Itens:");
                         }
                         catch (Exception)
@@ -71,9 +68,9 @@ namespace AWS.Services
                             Console.WriteLine("Não foi possível desserializar a mensagem do SNS.");
                         }
 
-                        await sqsClient.DeleteMessageAsync(new DeleteMessageRequest
+                        await _sqsClient.DeleteMessageAsync(new DeleteMessageRequest
                         {
-                            QueueUrl = queueUrl,
+                            QueueUrl = _queueUrl,
                             ReceiptHandle = message.ReceiptHandle
                         });
 
