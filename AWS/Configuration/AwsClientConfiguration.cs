@@ -8,6 +8,9 @@ namespace AWS.Configuration
 {
     public static class AwsClientConfiguration
     {
+        public static string AwsServiceUrl { get; } = Environment.GetEnvironmentVariable("AWS_SERVICE_URL");
+        public static string AwsRegion { get; } = Environment.GetEnvironmentVariable("AWS_REGION");
+
         public static void RegisterAwsClients(this IServiceCollection services)
         {
             services.AddSingleton<AmazonSimpleNotificationServiceClient>(sp =>
@@ -16,8 +19,8 @@ namespace AWS.Configuration
 
                 return new AmazonSimpleNotificationServiceClient(new AmazonSimpleNotificationServiceConfig
                 {
-                    ServiceURL = awsSettings.ServiceURL,
-                    AuthenticationRegion = awsSettings.Region
+                    ServiceURL = AwsServiceUrl ?? awsSettings.ServiceURL,
+                    AuthenticationRegion = AwsRegion ?? awsSettings.Region
                 });
             });
 
@@ -27,8 +30,8 @@ namespace AWS.Configuration
 
                 return new AmazonSQSClient(new AmazonSQSConfig
                 {
-                    ServiceURL = awsSettings.ServiceURL,
-                    AuthenticationRegion = awsSettings.Region
+                    ServiceURL = AwsServiceUrl ?? awsSettings.ServiceURL,
+                    AuthenticationRegion = AwsRegion ?? awsSettings.Region
                 });
             });
         }
