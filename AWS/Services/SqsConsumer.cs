@@ -10,7 +10,7 @@ namespace AWS.Services
     {
         private readonly AmazonSQSClient _sqsClient;
         private readonly AwsSettings _awsSettings;
-        private string _queueUrl;
+
 
         public SqsConsumer(AmazonSQSClient sqsClient, IOptions<AwsSettings> awsOptions)
         {
@@ -20,22 +20,21 @@ namespace AWS.Services
 
         public async Task ReceiveMessagesAsync()
         {
+            string queueUrl;
             Console.WriteLine("Aguardando 5 segundos para a mensagem chegar na fila...");
+
             await Task.Delay(5000);
 
             Console.WriteLine("Recebendo mensagens da fila SQS...");
 
             try
             {
-                if (string.IsNullOrEmpty(_queueUrl))
-                {
-                    var queueUrlResponse = await _sqsClient.GetQueueUrlAsync(new GetQueueUrlRequest { QueueName = _awsSettings.SqsQueueName });
-                    _queueUrl = queueUrlResponse.QueueUrl;
-                }
+                var queueUrlResponse = await _sqsClient.GetQueueUrlAsync(new GetQueueUrlRequest { QueueName = _awsSettings.SqsQueueName });
+                queueUrl = queueUrlResponse.QueueUrl;
 
                 var receiveRequest = new ReceiveMessageRequest
                 {
-                    QueueUrl = _queueUrl,
+                    QueueUrl = queueUrl,
                     MaxNumberOfMessages = 1,
                     WaitTimeSeconds = 10
                 };
@@ -70,7 +69,7 @@ namespace AWS.Services
 
                         await _sqsClient.DeleteMessageAsync(new DeleteMessageRequest
                         {
-                            QueueUrl = _queueUrl,
+                            QueueUrl = queueUrl,
                             ReceiptHandle = message.ReceiptHandle
                         });
 

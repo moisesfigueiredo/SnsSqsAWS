@@ -61,6 +61,7 @@ namespace AWS.Services
                 {
                     var topicResponse = await _snsClient.ListTopicsAsync(new ListTopicsRequest());
                     var foundTopic = topicResponse.Topics.FirstOrDefault(t => t.TopicArn.EndsWith(topicName));
+
                     if (foundTopic != null)
                     {
                         Console.WriteLine($"Tópico SNS '{topicName}' encontrado.");

@@ -19,7 +19,6 @@ services:
       - localstack
     environment:
       - AWS_SERVICE_URL=http://localstack:4566
-      - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=fake
       - AWS_SECRET_ACCESS_KEY=fake
     command: bash -c "sleep 10 && dotnet run --project /app/src/SqsSnsApp.csproj"
