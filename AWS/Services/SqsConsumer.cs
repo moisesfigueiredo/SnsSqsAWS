@@ -60,20 +60,19 @@ namespace AWS.Services
                             Console.WriteLine($"ID do Produto: {produto.Id}");
                             Console.WriteLine($"Nome: {produto.Nome}");
                             Console.WriteLine($"Valor: {produto.Valor:C}");
-                            Console.WriteLine("Itens:");
-                        }
-                        catch (Exception)
-                        {
-                            Console.WriteLine("Não foi possível desserializar a mensagem do SNS.");
-                        }
 
-                        await _sqsClient.DeleteMessageAsync(new DeleteMessageRequest
-                        {
-                            QueueUrl = queueUrl,
-                            ReceiptHandle = message.ReceiptHandle
-                        });
+                            await _sqsClient.DeleteMessageAsync(new DeleteMessageRequest
+                            {
+                                QueueUrl = queueUrl,
+                                ReceiptHandle = message.ReceiptHandle
+                            });
 
-                        Console.WriteLine("Mensagem excluída da fila.");
+                            Console.WriteLine("Mensagem processada com sucesso e excluída da fila.");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Erro ao processar mensagem: {ex.Message}");
+                        }
                     }
                 }
                 else
